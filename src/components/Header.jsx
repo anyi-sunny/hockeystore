@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Snowflake, LogOut, Lock } from 'lucide-react'
+import { LogOut, Lock } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import AdminLoginModal from './AdminLoginModal'
@@ -27,8 +27,8 @@ export default function Header() {
           to={session ? (session.role === 'admin' ? '/admin/dashboard' : '/shop') : '/'}
           className="flex items-center gap-2.5 group"
         >
-          <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-brand-600 group-hover:bg-brand-500 transition-colors">
-            <Snowflake size={18} />
+          <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-white ring-2 ring-brand-500 group-hover:ring-brand-300 overflow-hidden transition-all p-0.5">
+            <img src="/logo.png" alt="Bowdoin Hockey logo" className="w-full h-full object-contain" />
           </span>
           <span className="font-semibold tracking-wide flex flex-col leading-tight">
             <span className="text-[10px] text-stone-400">BOWDOIN WOMEN'S HOCKEY</span>
