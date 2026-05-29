@@ -9,7 +9,7 @@ import ItemEditorModal from '../components/ItemEditorModal'
 
 export default function ShopPage() {
   const { session } = useAuth()
-  const { items, addItem, updateItem, removeItem, submitOrder, settings } = useData()
+  const { items, orders, addItem, updateItem, removeItem, submitOrder, settings } = useData()
   const isAdmin = session?.role === 'admin'
   const nav = useNavigate()
 
@@ -17,7 +17,36 @@ export default function ShopPage() {
   const [cart, setCart] = useState([]) // { itemId, size, embroidery, quantity }
   const [placing, setPlacing] = useState(false)
 
+  // Units of a given item+size already locked in by placed orders (embroidered or not —
+  // it's the same physical garment, so both draw down the same stock).
+  function orderedQty(itemId, size) {
+    let q = 0
+    for (const o of orders) for (const li of o.items) {
+      if (li.itemId === itemId && li.size === size) q += li.quantity
+    }
+    return q
+  }
+  // Units of an item+size sitting in this buyer's cart but not yet submitted.
+  function cartQty(itemId, size) {
+    return cart.reduce((s, l) => (l.itemId === itemId && l.size === size ? s + l.quantity : s), 0)
+  }
+
   function addToCart(line) {
+    const item = items.find((i) => i.id === line.itemId)
+    const tracksStock = item?.stock && Object.keys(item.stock).length > 0
+    let note = 'Added to your order'
+    if (tracksStock) {
+      const stock = item.stock[line.size] ?? 0
+      const remaining = stock - orderedQty(line.itemId, line.size) - cartQty(line.itemId, line.size)
+      if (remaining <= 0) {
+        toast.error(`Size ${line.size} of ${item.name} is sold out.`)
+        return
+      }
+      if (line.quantity > remaining) {
+        line = { ...line, quantity: remaining }
+        note = `Only ${remaining} left in size ${line.size} — added ${remaining}.`
+      }
+    }
     setCart((prev) => {
       const idx = prev.findIndex(
         (l) => l.itemId === line.itemId && l.size === line.size && l.embroidery === line.embroidery
@@ -29,7 +58,7 @@ export default function ShopPage() {
       }
       return [...prev, line]
     })
-    toast.success('Added to your order')
+    toast.success(note)
   }
 
   function removeFromCart(idx) {
@@ -100,6 +129,7 @@ export default function ShopPage() {
               key={item.id}
               item={item}
               isAdmin={isAdmin}
+              ordered={(size) => orderedQty(item.id, size)}
               onEdit={() => setEditing(item)}
               onDelete={() => deleteItem(item)}
               onAddToCart={addToCart}
@@ -124,16 +154,22 @@ export default function ShopPage() {
   )
 }
 
-function ItemCard({ item, isAdmin, onEdit, onDelete, onAddToCart }) {
-  const [size, setSize] = useState(item.sizes[0] ?? '')
+function ItemCard({ item, isAdmin, ordered, onEdit, onDelete, onAddToCart }) {
+  const tracksStock = item.stock && Object.keys(item.stock).length > 0
+  // Units left for a size = admin's stock minus what's already been ordered.
+  const remaining = (s) => (tracksStock ? (item.stock[s] ?? 0) - ordered(s) : null)
+  const isOut = (s) => remaining(s) !== null && remaining(s) <= 0
+
+  const [size, setSize] = useState(() => item.sizes.find((s) => !isOut(s)) ?? item.sizes[0] ?? '')
   const [embroidery, setEmbroidery] = useState(false)
   const [quantity, setQuantity] = useState(1)
-  const tracksStock = item.stock && Object.keys(item.stock).length > 0
 
   const unit = lineItemUnitPrice({ embroidery }, item)
+  const selectedOut = isOut(size)
+  const allOut = tracksStock && item.sizes.length > 0 && item.sizes.every((s) => isOut(s))
 
   function add() {
-    if (!size) return
+    if (!size || selectedOut) return
     onAddToCart({ itemId: item.id, size, embroidery, quantity: Number(quantity) || 1 })
   }
 
@@ -163,7 +199,7 @@ function ItemCard({ item, isAdmin, onEdit, onDelete, onAddToCart }) {
             <p className="text-xs text-stone-500">Sizes: {item.sizes.join(', ') || '—'}</p>
             {tracksStock && (
               <p className="text-xs text-stone-500">
-                Stock: {item.sizes.map((s) => `${s}:${item.stock[s] ?? 0}`).join('  ')}
+                Left: {item.sizes.map((s) => `${s} ${Math.max(0, remaining(s))}/${item.stock[s] ?? 0}`).join('  ')}
               </p>
             )}
             <div className="flex gap-2 pt-2">
@@ -177,8 +213,11 @@ function ItemCard({ item, isAdmin, onEdit, onDelete, onAddToCart }) {
               <select value={size} onChange={(e) => setSize(e.target.value)} className="select flex-1 text-sm py-1.5">
                 {item.sizes.length === 0 && <option value="">No sizes</option>}
                 {item.sizes.map((s) => {
-                  const out = tracksStock && (item.stock[s] ?? 0) <= 0
-                  return <option key={s} value={s} disabled={out}>{s}{out ? ' (out)' : ''}</option>
+                  const rem = remaining(s)
+                  const out = rem !== null && rem <= 0
+                  const low = rem !== null && rem > 0 && rem <= 3
+                  const label = out ? `${s} — sold out` : low ? `${s} (${rem} left)` : s
+                  return <option key={s} value={s} disabled={out}>{label}</option>
                 })}
               </select>
               <input type="number" min="1" value={quantity}
@@ -192,8 +231,8 @@ function ItemCard({ item, isAdmin, onEdit, onDelete, onAddToCart }) {
                 Add embroidery (+{formatMoney(item.embroideryCost)})
               </label>
             )}
-            <button onClick={add} disabled={!size} className="btn btn-primary w-full">
-              <Plus size={16} /> Add to order · {formatMoney(unit)}
+            <button onClick={add} disabled={!size || selectedOut} className="btn btn-primary w-full">
+              {allOut ? 'Sold out' : selectedOut ? `Size ${size} sold out` : <><Plus size={16} /> Add to order · {formatMoney(unit)}</>}
             </button>
           </div>
         )}
