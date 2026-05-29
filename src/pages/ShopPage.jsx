@@ -273,7 +273,7 @@ function Cart({ cart, items, total, taxRate, placing, onRemove, onPlace }) {
             <p className="text-xs text-stone-400 mb-1">+ shipping (TBD)</p>
             <button onClick={onPlace} disabled={placing} className="btn btn-success btn-lg">
               <ShoppingBag size={18} />
-              {placing ? 'Placing…' : `Place order · ${formatMoney(total + tax)}`}
+              {placing ? 'Placing…' : `Add to order · ${formatMoney(total + tax)}`}
             </button>
           </div>
         </div>
