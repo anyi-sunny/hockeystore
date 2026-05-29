@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+/* ---- Theme tokens ----
+   Neutral: stone.  Accent/primary: indigo ("brand").  Success: emerald.  Danger: rose/red. */
+@theme {
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
+  --color-brand-950: #1e1b4b;
+}
+
+html, body, #root { height: 100%; }
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background:
+    radial-gradient(1200px 500px at 100% -10%, var(--color-brand-50), transparent 60%),
+    radial-gradient(1000px 500px at -10% 110%, #ecfdf5, transparent 55%),
+    #fafaf9;
+  background-attachment: fixed;
+  color: #1c1917;
+}
+
+@layer components {
+  /* Buttons — every variant has a clear hover + focus state + smooth transition */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg font-medium px-4 py-2 text-sm
+           transition-all duration-150 cursor-pointer select-none
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-sm { @apply px-3 py-1.5 text-sm gap-1.5; }
+  .btn-lg { @apply px-5 py-2.5 text-base; }
+
+  .btn-primary { @apply bg-brand-600 text-white hover:bg-brand-700 active:scale-[.98]
+                        shadow-sm hover:shadow focus-visible:ring-brand-500; }
+  .btn-success { @apply bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[.98]
+                        shadow-sm hover:shadow focus-visible:ring-emerald-500; }
+  .btn-ghost   { @apply border border-stone-300 bg-white text-stone-700 hover:bg-stone-100
+                        hover:border-stone-400 focus-visible:ring-stone-400; }
+  .btn-danger  { @apply border border-red-200 bg-white text-red-600 hover:bg-red-50
+                        hover:border-red-300 focus-visible:ring-red-400; }
+  .btn-dark    { @apply bg-stone-900 text-white hover:bg-stone-800 active:scale-[.98]
+                        shadow-sm focus-visible:ring-stone-500; }
+
+  /* Inline text link */
+  .link { @apply text-brand-600 hover:text-brand-700 underline underline-offset-2
+                 cursor-pointer transition-colors; }
+
+  /* Form controls */
+  .input, .select {
+    @apply w-full border border-stone-300 rounded-lg px-3 py-2 bg-white transition-colors
+           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500;
+  }
+  .select { @apply cursor-pointer; }
+
+  /* Cards */
+  .card { @apply bg-white border border-stone-200 rounded-xl shadow-sm; }
+  .card-interactive {
+    @apply cursor-pointer transition-all duration-150
+           hover:border-brand-400 hover:shadow-md hover:-translate-y-0.5;
+  }
+
+  /* Segmented toggle button (dashboard view switcher) */
+  .seg { @apply px-4 py-1.5 text-sm transition-colors cursor-pointer; }
+  .seg-on  { @apply bg-stone-900 text-white; }
+  .seg-off { @apply bg-white text-stone-700 hover:bg-stone-100; }
+}
