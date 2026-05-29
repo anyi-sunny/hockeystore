@@ -9,8 +9,9 @@ export const ADMIN_PASSWORD = 'bowdoinhockey2026'
 export function AuthProvider({ children }) {
   const [session, setSession] = useLocalStorage('auth.session', null)
 
-  function loginAsPlayer(playerId, buyerName) {
-    setSession({ role: 'player', playerId, buyerName })
+  // isSelf = the buyer is the team player themselves (vs. a family/friend ordering for them).
+  function loginAsPlayer(playerId, buyerName, isSelf) {
+    setSession({ role: 'player', playerId, buyerName, isSelf: !!isSelf })
   }
 
   function loginAsAdmin(email, password) {

@@ -44,7 +44,7 @@ export default function LoginPage() {
         return
       }
     }
-    loginAsPlayer(playerId, name)
+    loginAsPlayer(playerId, name, !forSomeoneElse)
     nav('/shop')
   }
 

@@ -99,7 +99,14 @@ export function DataProvider({ children }) {
 
   // ---- settings ----
   async function setSettings(next) {
-    const saved = await api.updateSettings(next, adminPw)
+    // Merge with current so callers can patch one field (e.g. just `locked`).
+    const merged = {
+      taxRate: settings.taxRate ?? 0,
+      shippingTotal: settings.shippingTotal ?? 0,
+      locked: settings.locked ?? false,
+      ...next,
+    }
+    const saved = await api.updateSettings(merged, adminPw)
     setSettingsState(saved)
   }
 

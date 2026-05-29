@@ -20,7 +20,7 @@ const {
 } = process.env
 
 const ACTIVE_POINTER_ID = '__active__' // reserved record in the stores table
-const DEFAULT_SETTINGS = { taxRate: 0.06, shippingTotal: 0 }
+const DEFAULT_SETTINGS = { taxRate: 0.06, shippingTotal: 0, locked: false }
 
 const json = (statusCode, body) => ({
   statusCode,
@@ -47,12 +47,29 @@ async function setActiveStoreId(storeId) {
   await ddb.send(new PutCommand({ TableName: STORES_TABLE, Item: { id: ACTIVE_POINTER_ID, storeId } }))
 }
 
+// Whether the active store's ordering is locked (admins bypass this).
+async function activeStoreLocked() {
+  const activeId = await getActiveStoreId()
+  if (!activeId) return false
+  const out = await ddb.send(new GetCommand({ TableName: SETTINGS_TABLE, Key: { id: activeId } }))
+  return Boolean(out.Item?.locked)
+}
+
 exports.handler = async (event) => {
   const method = event.requestContext?.http?.method ?? 'GET'
   const rawPath = event.rawPath ?? '/'
   const parts = rawPath.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean)
   const [resource, id] = parts
-  const body = event.body ? JSON.parse(event.body) : {}
+  // API Gateway may deliver the body base64-encoded — decode before parsing.
+  let body = {}
+  if (event.body) {
+    const raw = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body
+    try {
+      body = JSON.parse(raw)
+    } catch {
+      return json(400, { message: 'Invalid JSON body.' })
+    }
+  }
   const query = event.queryStringParameters ?? {}
   const isAdmin = (event.headers?.['x-admin-password'] ?? '') === ADMIN_PASSWORD
 
@@ -170,6 +187,10 @@ exports.handler = async (event) => {
 
     // ---- orders ----  (buyers freely manage their own orders; viewing past stores is admin)
     if (resource === 'orders') {
+      // When the store is locked, only admins may add/change/remove orders.
+      if (method !== 'GET' && !isAdmin && (await activeStoreLocked())) {
+        throw { status: 403, message: 'Ordering is closed for this store.' }
+      }
       if (method === 'GET') {
         const activeId = await getActiveStoreId()
         const storeId = query.storeId || activeId
@@ -223,6 +244,7 @@ exports.handler = async (event) => {
           storeId,
           taxRate: Number(body.taxRate) || 0,
           shippingTotal: Number(body.shippingTotal) || 0,
+          locked: Boolean(body.locked),
         }
         await ddb.send(new PutCommand({ TableName: SETTINGS_TABLE, Item: settings }))
         return json(200, settings)

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Plus, Pencil, Trash2, ShoppingBag, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
@@ -11,6 +11,7 @@ export default function ShopPage() {
   const { session } = useAuth()
   const { items, orders, addItem, updateItem, removeItem, submitOrder, settings } = useData()
   const isAdmin = session?.role === 'admin'
+  const locked = !!settings.locked && !isAdmin // ordering closed (buyers only)
   const nav = useNavigate()
 
   const [editing, setEditing] = useState(null) // item being edited, or 'new'
@@ -32,6 +33,7 @@ export default function ShopPage() {
   }
 
   function addToCart(line) {
+    if (locked) { toast.error('Ordering is closed.'); return }
     const item = items.find((i) => i.id === line.itemId)
     const tracksStock = item?.stock && Object.keys(item.stock).length > 0
     if (tracksStock) {
@@ -120,6 +122,13 @@ export default function ShopPage() {
         )}
       </div>
 
+      {locked && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg px-4 py-3 text-sm">
+          Ordering is currently <strong>closed</strong>. You can still review your order under{' '}
+          <Link to="/summary" className="link">My Order</Link>, but new items and changes are disabled.
+        </div>
+      )}
+
       {items.length === 0 ? (
         <p className="text-stone-500">No items yet.{isAdmin ? ' Click "Add item" to create one.' : ' Check back soon.'}</p>
       ) : (
@@ -129,6 +138,7 @@ export default function ShopPage() {
               key={item.id}
               item={item}
               isAdmin={isAdmin}
+              locked={locked}
               ordered={(size) => orderedQty(item.id, size)}
               onEdit={() => setEditing(item)}
               onDelete={() => deleteItem(item)}
@@ -138,7 +148,7 @@ export default function ShopPage() {
         </div>
       )}
 
-      {!isAdmin && cart.length > 0 && (
+      {!isAdmin && !locked && cart.length > 0 && (
         <Cart cart={cart} items={items} total={cartTotal} taxRate={settings.taxRate}
           placing={placing} onRemove={removeFromCart} onPlace={placeOrder} />
       )}
@@ -154,7 +164,7 @@ export default function ShopPage() {
   )
 }
 
-function ItemCard({ item, isAdmin, ordered, onEdit, onDelete, onAddToCart }) {
+function ItemCard({ item, isAdmin, locked, ordered, onEdit, onDelete, onAddToCart }) {
   const tracksStock = item.stock && Object.keys(item.stock).length > 0
   // Units left for a size = admin's stock minus what's already been ordered.
   const remaining = (s) => (tracksStock ? (item.stock[s] ?? 0) - ordered(s) : null)
@@ -236,8 +246,9 @@ function ItemCard({ item, isAdmin, ordered, onEdit, onDelete, onAddToCart }) {
                 Add embroidery (+{formatMoney(item.embroideryCost)})
               </label>
             )}
-            <button onClick={add} disabled={!size || selectedOut || overStock || qtyNum < 1} className="btn btn-primary w-full">
-              {allOut ? 'Sold out'
+            <button onClick={add} disabled={locked || !size || selectedOut || overStock || qtyNum < 1} className="btn btn-primary w-full">
+              {locked ? 'Ordering closed'
+                : allOut ? 'Sold out'
                 : selectedOut ? `Size ${size} sold out`
                 : overStock ? `Only ${selRemaining} left in size ${size}`
                 : <><Plus size={16} /> Add to order · {formatMoney(unit)}</>}

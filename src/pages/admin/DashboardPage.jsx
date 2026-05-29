@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Store, Sparkles, ArrowLeftRight, Trash2 } from 'lucide-react'
+import { Store, Sparkles, ArrowLeftRight, Trash2, Lock, Unlock } from 'lucide-react'
 import { toast } from 'sonner'
 import { useData } from '../../contexts/DataContext'
 import { api } from '../../api'
@@ -33,6 +33,7 @@ export default function DashboardPage() {
       </div>
 
       <StoreManager />
+      <LockToggle />
 
       {view === 'history' ? (
         <HistoryView />
@@ -48,6 +49,42 @@ export default function DashboardPage() {
           )}
         </>
       )}
+    </div>
+  )
+}
+
+// Lock/unlock ordering for everyone. When locked, buyers can view their orders
+// and totals but can't add, edit, or remove anything (enforced by the API too).
+function LockToggle() {
+  const { settings, setSettings } = useData()
+  const [busy, setBusy] = useState(false)
+  const locked = !!settings.locked
+
+  async function toggle() {
+    setBusy(true)
+    try {
+      await setSettings({ locked: !locked })
+      toast.success(locked ? 'Ordering re-opened' : 'Ordering locked')
+    } catch (e) {
+      toast.error(e.message || 'Could not update.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className={`card p-4 mb-4 flex items-center justify-between gap-3 flex-wrap border-l-4 ${locked ? 'border-l-red-500' : 'border-l-emerald-500'}`}>
+      <div className="text-sm flex items-center gap-2">
+        {locked ? <Lock size={16} className="text-red-600" /> : <Unlock size={16} className="text-emerald-600" />}
+        <span className="text-stone-500">Ordering is</span>
+        <span className={`font-semibold ${locked ? 'text-red-600' : 'text-emerald-600'}`}>{locked ? 'CLOSED' : 'OPEN'}</span>
+        <span className="text-stone-400 hidden sm:inline">
+          · {locked ? 'buyers can view totals but not change orders' : 'buyers can add and edit orders'}
+        </span>
+      </div>
+      <button onClick={toggle} disabled={busy} className={`btn btn-sm ${locked ? 'btn-success' : 'btn-danger'}`}>
+        {locked ? <><Unlock size={14} /> Re-open ordering</> : <><Lock size={14} /> Lock ordering</>}
+      </button>
     </div>
   )
 }
