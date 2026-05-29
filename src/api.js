@@ -31,8 +31,10 @@ export const api = {
   renewStore: (name, pw) => request('POST', '/stores', { body: { name }, adminPassword: pw }),
   setActiveStore: (storeId, pw) => request('PUT', '/stores/active', { body: { storeId }, adminPassword: pw }),
 
-  // roster — defaults to the active store; pass storeId to read a specific (past) store
-  getRoster: (storeId) => request('GET', `/roster${qs(storeId)}`),
+  // roster — defaults to the active store; pass storeId to read a specific (past) store.
+  // Pass the admin password to also receive each player's secret access code.
+  getRoster: (storeId, pw) => request('GET', `/roster${qs(storeId)}`, { adminPassword: pw }),
+  verifyPlayerCode: (playerId, code) => request('POST', '/roster/verify', { body: { playerId, code } }),
   addPlayer: (name, pw) => request('POST', '/roster', { body: { name }, adminPassword: pw }),
   updatePlayer: (id, name, pw) => request('PUT', `/roster/${id}`, { body: { name }, adminPassword: pw }),
   removePlayer: (id, pw) => request('DELETE', `/roster/${id}`, { adminPassword: pw }),

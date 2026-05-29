@@ -30,6 +30,10 @@ const now = new Date().toISOString()
 await ddb.send(new PutCommand({ TableName: T.stores, Item: { id: storeId, name: 'Lulu Order 2026', createdAt: now } }))
 await ddb.send(new PutCommand({ TableName: T.stores, Item: { id: '__active__', storeId } }))
 
+const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+const genCode = (len = 6) =>
+  Array.from({ length: len }, () => CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)]).join('')
+
 const COACHES = [
   { id: 'p_marissa', name: "Marissa O'Neill" },
   { id: 'p_mallory', name: 'Mallory Michaels' },
@@ -37,7 +41,7 @@ const COACHES = [
 for (const coach of COACHES) {
   await ddb.send(new PutCommand({
     TableName: T.roster,
-    Item: { ...coach, storeId },
+    Item: { ...coach, storeId, code: genCode() },
   }))
 }
 

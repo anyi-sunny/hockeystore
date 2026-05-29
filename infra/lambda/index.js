@@ -38,6 +38,11 @@ const byStore = (rows, storeId) => rows.filter((r) => r.storeId === storeId)
 const newId = (prefix) =>
   `${prefix}${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`
 
+// Short, human-friendly access code (no ambiguous chars like O/0/I/1).
+const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+const genCode = (len = 6) =>
+  Array.from({ length: len }, () => CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)]).join('')
+
 async function getActiveStoreId() {
   const out = await ddb.send(new GetCommand({ TableName: STORES_TABLE, Key: { id: ACTIVE_POINTER_ID } }))
   return out.Item?.storeId ?? null
@@ -138,11 +143,22 @@ exports.handler = async (event) => {
 
     // ---- roster ----
     if (resource === 'roster') {
-      if (method === 'GET') return json(200, byStore(await scanAll(ROSTER_TABLE), await resolveStoreId()))
+      if (method === 'GET') {
+        const list = byStore(await scanAll(ROSTER_TABLE), await resolveStoreId())
+        // Secret codes are only ever exposed to admins; everyone else gets names only.
+        if (!isAdmin) return json(200, list.map(({ code, ...rest }) => rest))
+        return json(200, list)
+      }
+      // Public: check a player's access code (codes never leave the server otherwise).
+      if (method === 'POST' && id === 'verify') {
+        const p = await ddb.send(new GetCommand({ TableName: ROSTER_TABLE, Key: { id: body.playerId } }))
+        const ok = !!(p.Item?.code && String(body.code ?? '').trim().toUpperCase() === String(p.Item.code).toUpperCase())
+        return json(200, { ok })
+      }
       if (method === 'POST') {
         requireAdmin()
         const storeId = await resolveStoreId()
-        const player = { id: newId('p'), storeId, name: String(body.name ?? '').trim() }
+        const player = { id: newId('p'), storeId, name: String(body.name ?? '').trim(), code: genCode() }
         if (!player.name) throw { status: 400, message: 'Name required.' }
         await ddb.send(new PutCommand({ TableName: ROSTER_TABLE, Item: player }))
         return json(201, player)

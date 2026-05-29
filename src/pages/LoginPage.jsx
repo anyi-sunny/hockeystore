@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ShoppingBag } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
+import { api } from '../api'
 
 // Normalize names for comparison: lowercase, trim, collapse internal whitespace.
 const norm = (s) => s.trim().toLowerCase().replace(/\s+/g, ' ')
@@ -14,12 +15,14 @@ export default function LoginPage() {
 
   const [buyerName, setBuyerName] = useState('')
   const [playerId, setPlayerId] = useState('')
+  const [code, setCode] = useState('')
   const [forSomeoneElse, setForSomeoneElse] = useState(false)
   const [err, setErr] = useState('')
+  const [checking, setChecking] = useState(false)
 
   const sortedRoster = [...roster].sort((a, b) => a.name.localeCompare(b.name))
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault()
     setErr('')
     const name = buyerName.trim()
@@ -33,6 +36,10 @@ export default function LoginPage() {
       setErr('Please select the team player this order is for.')
       return
     }
+    if (!code.trim()) {
+      setErr("Please enter the player's access code (ask the player for it).")
+      return
+    }
     // Ordering for yourself → your name must match the selected player exactly.
     if (!forSomeoneElse) {
       const player = roster.find((p) => p.id === playerId)
@@ -43,6 +50,20 @@ export default function LoginPage() {
         )
         return
       }
+    }
+    // Verify the access code server-side before letting them in.
+    setChecking(true)
+    try {
+      const { ok } = await api.verifyPlayerCode(playerId, code.trim())
+      if (!ok) {
+        setErr('Incorrect access code for this player. Ask the player for their code.')
+        return
+      }
+    } catch (e) {
+      setErr(e.message || 'Could not verify the access code. Try again.')
+      return
+    } finally {
+      setChecking(false)
     }
     loginAsPlayer(playerId, name, !forSomeoneElse)
     nav('/shop')
@@ -109,13 +130,29 @@ export default function LoginPage() {
             )}
           </div>
 
+          <div>
+            <label className="block text-sm font-medium mb-1">Access code</label>
+            <input
+              type="text"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="e.g. 9GAZ4Y"
+              className="input uppercase tracking-widest"
+              autoCapitalize="characters"
+            />
+            <p className="text-xs text-stone-400 mt-1">
+              Each player has a private code. Players: use yours. Family &amp; friends: ask the
+              player to share theirs.
+            </p>
+          </div>
+
           {err && (
             <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">{err}</p>
           )}
 
-          <button type="submit" className="btn btn-primary btn-lg w-full">
+          <button type="submit" disabled={checking} className="btn btn-primary btn-lg w-full">
             <ShoppingBag size={18} />
-            Continue to shop
+            {checking ? 'Checking…' : 'Continue to shop'}
           </button>
         </form>
       </div>

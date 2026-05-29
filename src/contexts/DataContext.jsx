@@ -24,7 +24,7 @@ export function DataProvider({ children }) {
     setError('')
     try {
       const [st, r, i, o, s] = await Promise.all([
-        api.getStores(), api.getRoster(), api.getItems(), api.getOrders(undefined, adminPw), api.getSettings(),
+        api.getStores(), api.getRoster(undefined, adminPw), api.getItems(), api.getOrders(undefined, adminPw), api.getSettings(),
       ])
       setStores(st.stores)
       setActiveStoreId(st.activeStoreId)
@@ -57,6 +57,7 @@ export function DataProvider({ children }) {
   async function addPlayer(name) {
     const player = await api.addPlayer(name, adminPw)
     setRoster((prev) => [...prev, player])
+    return player
   }
   async function updatePlayer(id, name) {
     const player = await api.updatePlayer(id, name, adminPw)
