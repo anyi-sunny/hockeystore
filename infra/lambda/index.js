@@ -168,7 +168,7 @@ exports.handler = async (event) => {
       }
     }
 
-    // ---- orders ----  (placing is open; viewing past stores + deleting are admin)
+    // ---- orders ----  (buyers freely manage their own orders; viewing past stores is admin)
     if (resource === 'orders') {
       if (method === 'GET') {
         const activeId = await getActiveStoreId()
@@ -192,8 +192,17 @@ exports.handler = async (event) => {
         await ddb.send(new PutCommand({ TableName: ORDERS_TABLE, Item: order }))
         return json(201, order)
       }
+      // Buyers edit their own order's line items (no admin needed — open ordering model).
+      if (method === 'PUT') {
+        const existing = await ddb.send(new GetCommand({ TableName: ORDERS_TABLE, Key: { id } }))
+        if (!existing.Item) throw { status: 404, message: 'Order not found.' }
+        const items = Array.isArray(body.items) ? body.items : []
+        if (items.length === 0) throw { status: 400, message: 'Order must have at least one item (delete it instead).' }
+        const order = { ...existing.Item, items }
+        await ddb.send(new PutCommand({ TableName: ORDERS_TABLE, Item: order }))
+        return json(200, order)
+      }
       if (method === 'DELETE') {
-        requireAdmin()
         await ddb.send(new DeleteCommand({ TableName: ORDERS_TABLE, Key: { id } }))
         return json(200, { id })
       }

@@ -87,6 +87,11 @@ export function DataProvider({ children }) {
     setOrders((prev) => [...prev, order])
     return order
   }
+  async function updateOrder(id, items) {
+    const order = await api.updateOrder(id, items)
+    setOrders((prev) => prev.map((o) => (o.id === id ? order : o)))
+    return order
+  }
   async function removeOrder(id) {
     await api.removeOrder(id, adminPw)
     setOrders((prev) => prev.filter((o) => o.id !== id))
@@ -104,7 +109,7 @@ export function DataProvider({ children }) {
       stores, activeStoreId, activeStore, renewStore, switchStore,
       roster, addPlayer, updatePlayer, removePlayer,
       items, addItem, updateItem, removeItem,
-      orders, submitOrder, removeOrder,
+      orders, submitOrder, updateOrder, removeOrder,
       settings, setSettings,
     }}>
       {children}

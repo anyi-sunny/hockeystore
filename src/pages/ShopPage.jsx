@@ -34,7 +34,6 @@ export default function ShopPage() {
   function addToCart(line) {
     const item = items.find((i) => i.id === line.itemId)
     const tracksStock = item?.stock && Object.keys(item.stock).length > 0
-    let note = 'Added to your order'
     if (tracksStock) {
       const stock = item.stock[line.size] ?? 0
       const remaining = stock - orderedQty(line.itemId, line.size) - cartQty(line.itemId, line.size)
@@ -42,9 +41,10 @@ export default function ShopPage() {
         toast.error(`Size ${line.size} of ${item.name} is sold out.`)
         return
       }
+      // Hard cap: refuse the whole add if it would exceed what's left.
       if (line.quantity > remaining) {
-        line = { ...line, quantity: remaining }
-        note = `Only ${remaining} left in size ${line.size} — added ${remaining}.`
+        toast.error(`Only ${remaining} left in size ${line.size}${cartQty(line.itemId, line.size) ? ' (counting your cart)' : ''}. Lower the quantity.`)
+        return
       }
     }
     setCart((prev) => {
@@ -58,7 +58,7 @@ export default function ShopPage() {
       }
       return [...prev, line]
     })
-    toast.success(note)
+    toast.success('Added to your order')
   }
 
   function removeFromCart(idx) {
@@ -71,12 +71,12 @@ export default function ShopPage() {
     try {
       await submitOrder(session.playerId, session.buyerName, cart)
       setCart([])
-      toast.success('Order placed!', {
-        description: 'View it any time under “My Order”.',
+      toast.success('Order saved!', {
+        description: 'Add, edit, or remove items any time under “My Order”.',
         action: { label: 'View order', onClick: () => nav('/summary') },
       })
     } catch (e) {
-      toast.error(e.message || 'Could not place order.')
+      toast.error(e.message || 'Could not save order.')
     } finally {
       setPlacing(false)
     }
@@ -110,7 +110,7 @@ export default function ShopPage() {
           <p className="text-stone-500 text-sm">
             {isAdmin
               ? 'Add and edit items below. Players see this same catalog without edit controls.'
-              : 'Pick your items, sizes, and embroidery, then place your order.'}
+              : 'Add the items, sizes, and embroidery you want. This just builds your list for the team order — no payment happens here, and you can edit it later under My Order.'}
           </p>
         </div>
         {isAdmin && (
@@ -167,10 +167,13 @@ function ItemCard({ item, isAdmin, ordered, onEdit, onDelete, onAddToCart }) {
   const unit = lineItemUnitPrice({ embroidery }, item)
   const selectedOut = isOut(size)
   const allOut = tracksStock && item.sizes.length > 0 && item.sizes.every((s) => isOut(s))
+  const selRemaining = remaining(size) // null when stock isn't tracked
+  const qtyNum = Number(quantity) || 0
+  const overStock = selRemaining !== null && qtyNum > selRemaining
 
   function add() {
-    if (!size || selectedOut) return
-    onAddToCart({ itemId: item.id, size, embroidery, quantity: Number(quantity) || 1 })
+    if (!size || selectedOut || overStock || qtyNum < 1) return
+    onAddToCart({ itemId: item.id, size, embroidery, quantity: qtyNum })
   }
 
   return (
@@ -215,15 +218,17 @@ function ItemCard({ item, isAdmin, ordered, onEdit, onDelete, onAddToCart }) {
                 {item.sizes.map((s) => {
                   const rem = remaining(s)
                   const out = rem !== null && rem <= 0
-                  const low = rem !== null && rem > 0 && rem <= 3
-                  const label = out ? `${s} — sold out` : low ? `${s} (${rem} left)` : s
+                  const label = out ? `${s} — sold out` : rem !== null ? `${s} (${rem} left)` : s
                   return <option key={s} value={s} disabled={out}>{label}</option>
                 })}
               </select>
-              <input type="number" min="1" value={quantity}
+              <input type="number" min="1" max={selRemaining ?? undefined} value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 className="input w-16 text-sm py-1.5" />
             </div>
+            {tracksStock && !selectedOut && (
+              <p className="text-xs text-stone-500">{selRemaining} left in size {size}</p>
+            )}
             {item.embroideryAvailable && (
               <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
                 <input type="checkbox" checked={embroidery} onChange={(e) => setEmbroidery(e.target.checked)}
@@ -231,8 +236,11 @@ function ItemCard({ item, isAdmin, ordered, onEdit, onDelete, onAddToCart }) {
                 Add embroidery (+{formatMoney(item.embroideryCost)})
               </label>
             )}
-            <button onClick={add} disabled={!size || selectedOut} className="btn btn-primary w-full">
-              {allOut ? 'Sold out' : selectedOut ? `Size ${size} sold out` : <><Plus size={16} /> Add to order · {formatMoney(unit)}</>}
+            <button onClick={add} disabled={!size || selectedOut || overStock || qtyNum < 1} className="btn btn-primary w-full">
+              {allOut ? 'Sold out'
+                : selectedOut ? `Size ${size} sold out`
+                : overStock ? `Only ${selRemaining} left in size ${size}`
+                : <><Plus size={16} /> Add to order · {formatMoney(unit)}</>}
             </button>
           </div>
         )}

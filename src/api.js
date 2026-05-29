@@ -46,6 +46,7 @@ export const api = {
   // orders — viewing a non-active store requires the admin password
   getOrders: (storeId, pw) => request('GET', `/orders${qs(storeId)}`, { adminPassword: pw }),
   submitOrder: (order) => request('POST', '/orders', { body: order }),
+  updateOrder: (id, items) => request('PUT', `/orders/${id}`, { body: { items } }),
   removeOrder: (id, pw) => request('DELETE', `/orders/${id}`, { adminPassword: pw }),
 
   // settings (per store)
