@@ -251,7 +251,7 @@ function ItemCard({ item, isAdmin, locked, ordered, onEdit, onDelete, onAddToCar
                 : allOut ? 'Sold out'
                 : selectedOut ? `Size ${size} sold out`
                 : overStock ? `Only ${selRemaining} left in size ${size}`
-                : <><Plus size={16} /> Add to order · {formatMoney(unit * (qtyNum || 1))}</>}
+                : <><Plus size={16} /> Add to cart · {formatMoney(unit * (qtyNum || 1))}</>}
             </button>
           </div>
         )}
